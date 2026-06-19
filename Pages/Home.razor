@@ -1,7 +1,9 @@
 @page "/"
 @layout GameLayout
 @implements IDisposable
+@inject IJSRuntime JS
 @using System.Threading
+@using System.Globalization
 
 <div class="cubattle">
 
@@ -27,13 +29,14 @@
             <span class="place-hint">→ clique na arena para posicionar</span>
         </div>
 
-        <div class="arena-preview" style="width:@Px(PreviewW); height:@Px(PreviewH);" @onclick="OnPreviewClick">
+        <div class="arena-preview" @ref="_previewEl"
+             style="width:min(100%, @Px(PreviewW)); aspect-ratio:@_arenaW / @_arenaH;" @onclick="OnPreviewClick">
             <div class="prev-sq prev-blue @(_placing == 1 ? "prev-active" : "")"
-                 style="left:@Px(_startX1*PreviewScale); top:@Px(_startY1*PreviewScale); width:@Px(InitSize1*PreviewScale); height:@Px(InitSize1*PreviewScale);">
+                 style="left:@Pct(_startX1, _arenaW); top:@Pct(_startY1, _arenaH); width:@Pct(InitSize1, _arenaW); height:@Pct(InitSize1, _arenaH);">
                 @_hp1
             </div>
             <div class="prev-sq prev-red @(_placing == 2 ? "prev-active" : "")"
-                 style="left:@Px(_startX2*PreviewScale); top:@Px(_startY2*PreviewScale); width:@Px(InitSize2*PreviewScale); height:@Px(InitSize2*PreviewScale);">
+                 style="left:@Pct(_startX2, _arenaW); top:@Pct(_startY2, _arenaH); width:@Pct(InitSize2, _arenaW); height:@Pct(InitSize2, _arenaH);">
                 @_hp2
             </div>
         </div>
@@ -89,7 +92,7 @@
 }
 else if (_phase == Phase.Playing)
 {
-    <div class="hud" style="width:@Px(_arenaW);">
+    <div class="hud" style="width:min(100%, @Px(_arenaW));">
         <div class="hud-blue">
             <span>Quadrado 1</span>
             <span class="hearts">@Hearts(_sq1)</span>
@@ -100,13 +103,13 @@ else if (_phase == Phase.Playing)
             <span>Quadrado 2</span>
         </div>
     </div>
-    <div class="arena" style="width:@Px(_arenaW); height:@Px(_arenaH);">
+    <div class="arena" style="width:min(100%, @Px(_arenaW)); aspect-ratio:@_arenaW / @_arenaH;">
         <div class="sq sq-1-game"
-             style="left:@Px(_sq1.X); top:@Px(_sq1.Y); width:@Px(_sq1.Size); height:@Px(_sq1.Size);">
+             style="left:@Pct(_sq1.X, _arenaW); top:@Pct(_sq1.Y, _arenaH); width:@Pct(_sq1.Size, _arenaW); height:@Pct(_sq1.Size, _arenaH);">
             @(_sq1.MaxHits - _sq1.HitCount)
         </div>
         <div class="sq sq-2-game"
-             style="left:@Px(_sq2.X); top:@Px(_sq2.Y); width:@Px(_sq2.Size); height:@Px(_sq2.Size);">
+             style="left:@Pct(_sq2.X, _arenaW); top:@Pct(_sq2.Y, _arenaH); width:@Pct(_sq2.Size, _arenaW); height:@Pct(_sq2.Size, _arenaH);">
             @(_sq2.MaxHits - _sq2.HitCount)
         </div>
     </div>
@@ -159,6 +162,7 @@ else
     int                    _cooldown;
     bool                   _touching;
     CancellationTokenSource? _cts;
+    ElementReference       _previewEl;
 
     // ── Derivados ──────────────────────────────────────────────
     double InitSize1    => MinSize + _hp1 * SizePerHP;
@@ -169,6 +173,9 @@ else
 
     // ── Helpers ────────────────────────────────────────────────
     static string Px(double v)      => $"{v:F0}px";
+    // Posição/tamanho como % da arena → escala junto com o elemento (responsivo)
+    static string Pct(double v, double total)
+        => (total <= 0 ? 0 : v / total * 100).ToString("F4", CultureInfo.InvariantCulture) + "%";
     static string Hearts(Sq s)      => new string('♥', Math.Max(0, s.MaxHits - s.HitCount)) + new string('♡', Math.Min(s.MaxHits, s.HitCount));
     string Sel(Dir cur, Dir btn)    => cur == btn ? "dir-btn active" : "dir-btn";
     string PlaceBtn(int i)          => _placing == i
@@ -209,10 +216,15 @@ else
         _startY2 = Math.Clamp(_startY2, 0, Math.Max(0, _arenaH - InitSize2));
     }
 
-    void OnPreviewClick(MouseEventArgs e)
+    async Task OnPreviewClick(MouseEventArgs e)
     {
-        double ax = e.OffsetX / PreviewScale;
-        double ay = e.OffsetY / PreviewScale;
+        // Mede a largura renderizada do preview (pode estar reduzida em telas pequenas)
+        double w = await JS.InvokeAsync<double>("cubattle.width", _previewEl);
+        if (w <= 0) return;
+
+        double scale = w / _arenaW;          // px renderizados por px de arena (uniforme)
+        double ax = e.OffsetX / scale;
+        double ay = e.OffsetY / scale;
 
         if (_placing == 1)
         {

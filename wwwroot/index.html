@@ -29,6 +29,12 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+    <script>
+        window.cubattle = {
+            // Largura renderizada de um elemento (px) — usado para mapear cliques no preview
+            width: el => el ? el.getBoundingClientRect().width : 0
+        };
+    </script>
 </body>
 
 </html>
