@@ -1,0 +1,12 @@
+## .NET / Blazor WASM
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+publish/
+
+## OS
+.DS_Store
+Thumbs.db

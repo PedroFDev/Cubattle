@@ -1,0 +1,368 @@
+@page "/"
+@layout GameLayout
+@implements IDisposable
+@using System.Threading
+
+<div class="cubattle">
+
+@if (_phase == Phase.Setup)
+{
+    <div class="setup">
+        <h1 class="title">CUBATTLE</h1>
+
+        <div class="config-row">
+            <span class="config-label">Arena:</span>
+            <label>Largura <input type="number" class="num-input" @bind="_arenaW" @bind:after="ResetPositions" min="400" max="1400" step="50" /></label>
+            <label>Altura  <input type="number" class="num-input" @bind="_arenaH" @bind:after="ResetPositions" min="300" max="800"  step="50" /></label>
+            <span class="config-sep">|</span>
+            <span class="config-label">Velocidade:</span>
+            <input type="range" class="speed-slider" min="0.25" max="4" step="0.25" @bind="_speedMult" @bind:event="oninput" />
+            <span class="speed-val">@_speedMult.ToString("F2")×</span>
+        </div>
+
+        <div class="place-controls">
+            <span class="config-label">Posicionar:</span>
+            <button class="@PlaceBtn(1)" @onclick="@(() => { _placing = 1; })">● Quadrado 1</button>
+            <button class="@PlaceBtn(2)" @onclick="@(() => { _placing = 2; })">● Quadrado 2</button>
+            <span class="place-hint">→ clique na arena para posicionar</span>
+        </div>
+
+        <div class="arena-preview" style="width:@Px(PreviewW); height:@Px(PreviewH);" @onclick="OnPreviewClick">
+            <div class="prev-sq prev-blue @(_placing == 1 ? "prev-active" : "")"
+                 style="left:@Px(_startX1*PreviewScale); top:@Px(_startY1*PreviewScale); width:@Px(InitSize1*PreviewScale); height:@Px(InitSize1*PreviewScale);">
+                @_hp1
+            </div>
+            <div class="prev-sq prev-red @(_placing == 2 ? "prev-active" : "")"
+                 style="left:@Px(_startX2*PreviewScale); top:@Px(_startY2*PreviewScale); width:@Px(InitSize2*PreviewScale); height:@Px(InitSize2*PreviewScale);">
+                @_hp2
+            </div>
+        </div>
+
+        <div class="panels">
+
+            <div class="panel panel-blue">
+                <div class="sq-demo sq-blue-fill"></div>
+                <h2>Quadrado 1</h2>
+                <p class="vuln">Vulnerável: ↑ topo e ↓ base</p>
+                <div class="hp-row">
+                    <span class="hp-label">Vida: <strong>@_hp1</strong></span>
+                    <input type="range" min="1" max="8" step="1" @bind="_hp1" @bind:event="oninput" @bind:after="ClampPositions" />
+                </div>
+                <div class="dir-grid">
+                    <button class="@Sel(_dir1, Dir.NW)" @onclick="@(() => { _dir1 = Dir.NW; })">↖</button>
+                    <button class="@Sel(_dir1, Dir.N)"  @onclick="@(() => { _dir1 = Dir.N;  })">↑</button>
+                    <button class="@Sel(_dir1, Dir.NE)" @onclick="@(() => { _dir1 = Dir.NE; })">↗</button>
+                    <button class="@Sel(_dir1, Dir.W)"  @onclick="@(() => { _dir1 = Dir.W;  })">←</button>
+                    <span class="dir-center">●</span>
+                    <button class="@Sel(_dir1, Dir.E)"  @onclick="@(() => { _dir1 = Dir.E;  })">→</button>
+                    <button class="@Sel(_dir1, Dir.SW)" @onclick="@(() => { _dir1 = Dir.SW; })">↙</button>
+                    <button class="@Sel(_dir1, Dir.S)"  @onclick="@(() => { _dir1 = Dir.S;  })">↓</button>
+                    <button class="@Sel(_dir1, Dir.SE)" @onclick="@(() => { _dir1 = Dir.SE; })">↘</button>
+                </div>
+            </div>
+
+            <div class="panel panel-red">
+                <div class="sq-demo sq-red-fill"></div>
+                <h2>Quadrado 2</h2>
+                <p class="vuln">Vulnerável: ← esquerda e → direita</p>
+                <div class="hp-row">
+                    <span class="hp-label">Vida: <strong>@_hp2</strong></span>
+                    <input type="range" min="1" max="8" step="1" @bind="_hp2" @bind:event="oninput" @bind:after="ClampPositions" />
+                </div>
+                <div class="dir-grid">
+                    <button class="@Sel(_dir2, Dir.NW)" @onclick="@(() => { _dir2 = Dir.NW; })">↖</button>
+                    <button class="@Sel(_dir2, Dir.N)"  @onclick="@(() => { _dir2 = Dir.N;  })">↑</button>
+                    <button class="@Sel(_dir2, Dir.NE)" @onclick="@(() => { _dir2 = Dir.NE; })">↗</button>
+                    <button class="@Sel(_dir2, Dir.W)"  @onclick="@(() => { _dir2 = Dir.W;  })">←</button>
+                    <span class="dir-center">●</span>
+                    <button class="@Sel(_dir2, Dir.E)"  @onclick="@(() => { _dir2 = Dir.E;  })">→</button>
+                    <button class="@Sel(_dir2, Dir.SW)" @onclick="@(() => { _dir2 = Dir.SW; })">↙</button>
+                    <button class="@Sel(_dir2, Dir.S)"  @onclick="@(() => { _dir2 = Dir.S;  })">↓</button>
+                    <button class="@Sel(_dir2, Dir.SE)" @onclick="@(() => { _dir2 = Dir.SE; })">↘</button>
+                </div>
+            </div>
+
+        </div>
+
+        <button class="btn-start" @onclick="StartGame">▶ Iniciar</button>
+    </div>
+}
+else if (_phase == Phase.Playing)
+{
+    <div class="hud" style="width:@Px(_arenaW);">
+        <div class="hud-blue">
+            <span>Quadrado 1</span>
+            <span class="hearts">@Hearts(_sq1)</span>
+        </div>
+        <button class="btn-stop" @onclick="ResetGame">■ Parar</button>
+        <div class="hud-red">
+            <span class="hearts">@Hearts(_sq2)</span>
+            <span>Quadrado 2</span>
+        </div>
+    </div>
+    <div class="arena" style="width:@Px(_arenaW); height:@Px(_arenaH);">
+        <div class="sq sq-1-game"
+             style="left:@Px(_sq1.X); top:@Px(_sq1.Y); width:@Px(_sq1.Size); height:@Px(_sq1.Size);">
+            @(_sq1.MaxHits - _sq1.HitCount)
+        </div>
+        <div class="sq sq-2-game"
+             style="left:@Px(_sq2.X); top:@Px(_sq2.Y); width:@Px(_sq2.Size); height:@Px(_sq2.Size);">
+            @(_sq2.MaxHits - _sq2.HitCount)
+        </div>
+    </div>
+    <div class="legend">
+        <span class="leg-vuln"></span> lado vulnerável
+    </div>
+}
+else
+{
+    <div class="gameover">
+        <h1 class="title">@_winner venceu!</h1>
+        <button class="btn-start" @onclick="ResetGame">↩ Jogar Novamente</button>
+    </div>
+}
+
+</div>
+
+@code {
+    // ── Constantes ─────────────────────────────────────────────
+    const double HitShrink = 15, MinSize = 20, BaseStep = 4.0;
+    const int    SizePerHP = 15, CooldownFrames = 25;
+    const double MaxPrevW = 480, MaxPrevH = 320;
+
+    // ── Tipos ──────────────────────────────────────────────────
+    enum Phase { Setup, Playing, GameOver }
+    enum Dir   { NW, N, NE, W, E, SW, S, SE }
+
+    class Sq
+    {
+        public double X, Y, Size, VX, VY;
+        public int    HitCount, MaxHits;
+        public double Right  => X + Size;
+        public double Bottom => Y + Size;
+        public double CX     => X + Size / 2;
+        public double CY     => Y + Size / 2;
+    }
+
+    // ── Configuração ───────────────────────────────────────────
+    int    _arenaW = 800, _arenaH = 500;
+    int    _hp1 = 4, _hp2 = 4;
+    double _speedMult = 1.0;   // multiplicador visual (0.25× a 4×)
+    Dir    _dir1 = Dir.NE, _dir2 = Dir.SW;
+    int    _placing = 1;
+    double _startX1, _startY1, _startX2, _startY2;
+
+    // ── Estado ─────────────────────────────────────────────────
+    Phase                  _phase  = Phase.Setup;
+    Sq                     _sq1    = new(), _sq2 = new();
+    string                 _winner = "";
+    int                    _cooldown;
+    bool                   _touching;
+    CancellationTokenSource? _cts;
+
+    // ── Derivados ──────────────────────────────────────────────
+    double InitSize1    => MinSize + _hp1 * SizePerHP;
+    double InitSize2    => MinSize + _hp2 * SizePerHP;
+    double PreviewScale => Math.Min(MaxPrevW / _arenaW, MaxPrevH / _arenaH);
+    double PreviewW     => _arenaW * PreviewScale;
+    double PreviewH     => _arenaH * PreviewScale;
+
+    // ── Helpers ────────────────────────────────────────────────
+    static string Px(double v)      => $"{v:F0}px";
+    static string Hearts(Sq s)      => new string('♥', Math.Max(0, s.MaxHits - s.HitCount)) + new string('♡', Math.Min(s.MaxHits, s.HitCount));
+    string Sel(Dir cur, Dir btn)    => cur == btn ? "dir-btn active" : "dir-btn";
+    string PlaceBtn(int i)          => _placing == i
+        ? (i == 1 ? "place-btn place-btn-blue active" : "place-btn place-btn-red active")
+        : "place-btn";
+
+    // Retorna vetor unitário (magnitude = 1.0) — velocidade real é aplicada pelo BaseStep
+    static (double vx, double vy) Vec(Dir d)
+    {
+        const double D = 0.7071;
+        return d switch
+        {
+            Dir.N  => (0,  -1), Dir.NE => ( D, -D),
+            Dir.E  => (1,   0), Dir.SE => ( D,  D),
+            Dir.S  => (0,   1), Dir.SW => (-D,  D),
+            Dir.W  => (-1,  0), _      => (-D, -D),
+        };
+    }
+
+    // ── Ciclo de vida ──────────────────────────────────────────
+    protected override void OnInitialized() => ResetPositions();
+
+    // Reset total de posições (usado na mudança de tamanho da arena)
+    void ResetPositions()
+    {
+        _startX1 = Math.Clamp(_arenaW * .25 - InitSize1 / 2, 0, Math.Max(0, _arenaW - InitSize1));
+        _startY1 = Math.Clamp(_arenaH * .5  - InitSize1 / 2, 0, Math.Max(0, _arenaH - InitSize1));
+        _startX2 = Math.Clamp(_arenaW * .75 - InitSize2 / 2, 0, Math.Max(0, _arenaW - InitSize2));
+        _startY2 = Math.Clamp(_arenaH * .5  - InitSize2 / 2, 0, Math.Max(0, _arenaH - InitSize2));
+    }
+
+    // Apenas garante que posições continuam válidas ao mudar HP (mantém posição manual)
+    void ClampPositions()
+    {
+        _startX1 = Math.Clamp(_startX1, 0, Math.Max(0, _arenaW - InitSize1));
+        _startY1 = Math.Clamp(_startY1, 0, Math.Max(0, _arenaH - InitSize1));
+        _startX2 = Math.Clamp(_startX2, 0, Math.Max(0, _arenaW - InitSize2));
+        _startY2 = Math.Clamp(_startY2, 0, Math.Max(0, _arenaH - InitSize2));
+    }
+
+    void OnPreviewClick(MouseEventArgs e)
+    {
+        double ax = e.OffsetX / PreviewScale;
+        double ay = e.OffsetY / PreviewScale;
+
+        if (_placing == 1)
+        {
+            _startX1 = Math.Clamp(ax - InitSize1 / 2, 0, Math.Max(0, _arenaW - InitSize1));
+            _startY1 = Math.Clamp(ay - InitSize1 / 2, 0, Math.Max(0, _arenaH - InitSize1));
+        }
+        else
+        {
+            _startX2 = Math.Clamp(ax - InitSize2 / 2, 0, Math.Max(0, _arenaW - InitSize2));
+            _startY2 = Math.Clamp(ay - InitSize2 / 2, 0, Math.Max(0, _arenaH - InitSize2));
+        }
+    }
+
+    // ── Controle ───────────────────────────────────────────────
+    void StartGame()
+    {
+        var (vx1, vy1) = Vec(_dir1);
+        var (vx2, vy2) = Vec(_dir2);
+        _sq1 = new Sq { X = _startX1, Y = _startY1, Size = InitSize1, VX = vx1, VY = vy1, MaxHits = _hp1 };
+        _sq2 = new Sq { X = _startX2, Y = _startY2, Size = InitSize2, VX = vx2, VY = vy2, MaxHits = _hp2 };
+        _cooldown = 0;
+        _touching = false;
+        _phase = Phase.Playing;
+        _ = GameLoop();
+    }
+
+    void ResetGame()
+    {
+        StopGame();
+        _phase = Phase.Setup;
+    }
+
+    // ── Loop do jogo ───────────────────────────────────────────
+    // Acumulador garante que a trajetória física é idêntica em qualquer velocidade —
+    // _speedMult só controla quantos passos físicos são executados por frame.
+    double _accumulator;
+
+    async Task GameLoop()
+    {
+        _cts = new CancellationTokenSource();
+        _accumulator = 0;
+        try
+        {
+            while (!_cts.IsCancellationRequested)
+            {
+                await Task.Delay(16, _cts.Token);
+
+                _accumulator += _speedMult;
+                while (_accumulator >= 1.0)
+                {
+                    PhysicsStep();
+                    _accumulator -= 1.0;
+                    if (_sq1.HitCount >= _sq1.MaxHits) { End("Quadrado 2"); return; }
+                    if (_sq2.HitCount >= _sq2.MaxHits) { End("Quadrado 1"); return; }
+                }
+
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    void PhysicsStep()
+    {
+        MoveStep(_sq1); MoveStep(_sq2);
+        Bounce(_sq1);   Bounce(_sq2);
+        Collide();
+    }
+
+    // Move um "passo físico" fixo: BaseStep px na direção do vetor unitário
+    static void MoveStep(Sq s) { s.X += s.VX * BaseStep; s.Y += s.VY * BaseStep; }
+
+    void Bounce(Sq s)
+    {
+        if (s.X < 0)                { s.X = 0;               s.VX =  Math.Abs(s.VX); }
+        if (s.X + s.Size > _arenaW) { s.X = _arenaW - s.Size; s.VX = -Math.Abs(s.VX); }
+        if (s.Y < 0)                { s.Y = 0;               s.VY =  Math.Abs(s.VY); }
+        if (s.Y + s.Size > _arenaH) { s.Y = _arenaH - s.Size; s.VY = -Math.Abs(s.VY); }
+    }
+
+    void Collide()
+    {
+        double ox = Math.Min(_sq1.Right,  _sq2.Right)  - Math.Max(_sq1.X, _sq2.X);
+        double oy = Math.Min(_sq1.Bottom, _sq2.Bottom) - Math.Max(_sq1.Y, _sq2.Y);
+
+        if (ox <= 0 || oy <= 0)
+        {
+            _touching = false;
+            if (_cooldown > 0) _cooldown--;
+            return;
+        }
+
+        bool horzHit = ox < oy;
+        bool newCollision = !_touching;
+        _touching = true;
+
+        // Separação (aplicada todo frame para evitar sobreposição persistente)
+        if (horzHit)
+        {
+            double push = ox / 2 + 1;
+            if (_sq1.CX < _sq2.CX) { _sq1.X -= push; _sq2.X += push; }
+            else                    { _sq1.X += push; _sq2.X -= push; }
+        }
+        else
+        {
+            double push = oy / 2 + 1;
+            if (_sq1.CY < _sq2.CY) { _sq1.Y -= push; _sq2.Y += push; }
+            else                    { _sq1.Y += push; _sq2.Y -= push; }
+        }
+
+        // Troca de velocidade e dano apenas no primeiro frame do contato
+        if (!newCollision) return;
+
+        if (horzHit) (_sq1.VX, _sq2.VX) = (_sq2.VX, _sq1.VX);
+        else         (_sq1.VY, _sq2.VY) = (_sq2.VY, _sq1.VY);
+
+        // Garante que nenhum quadrado fique parado após a troca
+        KeepMoving(_sq1);
+        KeepMoving(_sq2);
+
+        if (_cooldown > 0) return;
+        _cooldown = CooldownFrames;
+        Hit(horzHit ? _sq2 : _sq1);
+    }
+
+    // Normaliza para vetor unitário e previne velocidade zero
+    static void KeepMoving(Sq s)
+    {
+        double mag = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
+        if (mag < 0.1) { s.VX = 0.7071; s.VY = 0.7071; }
+        else           { s.VX /= mag;    s.VY /= mag;    }
+    }
+
+    static void Hit(Sq s)
+    {
+        s.X    += HitShrink / 2;
+        s.Y    += HitShrink / 2;
+        s.Size -= HitShrink;
+        s.HitCount++;
+    }
+
+    void End(string winner)
+    {
+        StopGame();
+        _winner = winner;
+        _phase  = Phase.GameOver;
+        StateHasChanged();
+    }
+
+    void StopGame() { _cts?.Cancel(); _cts?.Dispose(); _cts = null; }
+
+    public void Dispose() => StopGame();
+}
