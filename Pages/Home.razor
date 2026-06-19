@@ -14,12 +14,28 @@
 
         <div class="config-row">
             <span class="config-label">Arena:</span>
-            <label>Largura <input type="number" class="num-input" @bind="_arenaW" @bind:after="ResetPositions" min="400" max="1400" step="50" /></label>
-            <label>Altura  <input type="number" class="num-input" @bind="_arenaH" @bind:after="ResetPositions" min="300" max="800"  step="50" /></label>
+            <select class="combo" value="@ArenaKey" @onchange="OnArenaSelect">
+                @foreach (var p in _arenaPresets)
+                {
+                    <option value="@($"{p.w}x{p.h}")">@p.label (@p.w×@p.h)</option>
+                }
+                <option value="custom" disabled hidden>Personalizado (@_arenaW×@_arenaH)</option>
+            </select>
+
             <span class="config-sep">|</span>
+
             <span class="config-label">Velocidade:</span>
-            <input type="range" class="speed-slider" min="0.25" max="4" step="0.25" @bind="_speedMult" @bind:event="oninput" />
-            <span class="speed-val">@_speedMult.ToString("F2")×</span>
+            <select class="combo" value="@_speedMult.ToString(CultureInfo.InvariantCulture)" @onchange="OnSpeedChange">
+                <option value="0.25">0.25×</option>
+                <option value="0.5">0.50×</option>
+                <option value="1">1×</option>
+                <option value="1.5">1.5×</option>
+                <option value="2">2×</option>
+            </select>
+
+            <span class="config-sep">|</span>
+
+            <button class="btn-reset" @onclick="ResetAll">↺ Resetar</button>
         </div>
 
         <div class="place-controls">
@@ -39,7 +55,20 @@
                  style="left:@Pct(_startX2, _arenaW); top:@Pct(_startY2, _arenaH); width:@Pct(InitSize2, _arenaW); height:@Pct(InitSize2, _arenaH);">
                 @_hp2
             </div>
+
+            <div class="resize-handle resize-e"  @onpointerdown="e => StartResize(e, ResizeDir.E)"
+                 @onpointerdown:stopPropagation="true" @onclick:stopPropagation="true"></div>
+            <div class="resize-handle resize-s"  @onpointerdown="e => StartResize(e, ResizeDir.S)"
+                 @onpointerdown:stopPropagation="true" @onclick:stopPropagation="true"></div>
+            <div class="resize-handle resize-se" @onpointerdown="e => StartResize(e, ResizeDir.SE)"
+                 @onpointerdown:stopPropagation="true" @onclick:stopPropagation="true"></div>
         </div>
+
+        @if (_resizing != ResizeDir.None)
+        {
+            <div class="resize-overlay" @onpointermove="OnResizeMove"
+                 @onpointerup="EndResize" @onpointerleave="EndResize"></div>
+        }
 
         <div class="panels">
 
@@ -131,11 +160,27 @@ else
     // ── Constantes ─────────────────────────────────────────────
     const double HitShrink = 15, MinSize = 20, BaseStep = 4.0;
     const int    SizePerHP = 15, CooldownFrames = 25;
-    const double MaxPrevW = 480, MaxPrevH = 320;
+    const double PreviewScale = 0.4;   // escala fixa: preview cresce/encolhe junto com a arena
+    const int    MinArenaW = 400, MaxArenaW = 1400, MinArenaH = 300, MaxArenaH = 800;
+
+    // Padrões (usados no botão Resetar)
+    const int    DefArenaW = 800, DefArenaH = 500, DefHp = 4;
+    const double DefSpeed  = 1.0;
 
     // ── Tipos ──────────────────────────────────────────────────
-    enum Phase { Setup, Playing, GameOver }
-    enum Dir   { NW, N, NE, W, E, SW, S, SE }
+    enum Phase     { Setup, Playing, GameOver }
+    enum Dir       { NW, N, NE, W, E, SW, S, SE }
+    enum ResizeDir { None, E, S, SE }
+
+    // Presets de tamanho da arena (combobox)
+    readonly (string label, int w, int h)[] _arenaPresets =
+    {
+        ("Pequena", 600, 400),
+        ("Média",   800, 500),
+        ("Grande", 1000, 600),
+        ("Ampla",  1200, 650),
+        ("Enorme", 1400, 800),
+    };
 
     class Sq
     {
@@ -164,12 +209,17 @@ else
     CancellationTokenSource? _cts;
     ElementReference       _previewEl;
 
+    // Estado do redimensionamento por arrasto
+    ResizeDir _resizing = ResizeDir.None;
+    double    _resizeStartX, _resizeStartY, _resizeScale;
+    int       _resizeStartW, _resizeStartH;
+
     // ── Derivados ──────────────────────────────────────────────
     double InitSize1    => MinSize + _hp1 * SizePerHP;
     double InitSize2    => MinSize + _hp2 * SizePerHP;
-    double PreviewScale => Math.Min(MaxPrevW / _arenaW, MaxPrevH / _arenaH);
     double PreviewW     => _arenaW * PreviewScale;
-    double PreviewH     => _arenaH * PreviewScale;
+    string ArenaKey     => _arenaPresets.Any(p => p.w == _arenaW && p.h == _arenaH)
+        ? $"{_arenaW}x{_arenaH}" : "custom";
 
     // ── Helpers ────────────────────────────────────────────────
     static string Px(double v)      => $"{v:F0}px";
@@ -237,6 +287,64 @@ else
             _startY2 = Math.Clamp(ay - InitSize2 / 2, 0, Math.Max(0, _arenaH - InitSize2));
         }
     }
+
+    // ── Configuração: comboboxes e reset ───────────────────────
+    void OnArenaSelect(ChangeEventArgs e)
+    {
+        var key = (string?)e.Value;
+        if (string.IsNullOrEmpty(key) || key == "custom") return;
+        var parts = key.Split('x');
+        _arenaW = int.Parse(parts[0]);
+        _arenaH = int.Parse(parts[1]);
+        ResetPositions();
+    }
+
+    void OnSpeedChange(ChangeEventArgs e)
+        => _speedMult = double.Parse((string)e.Value!, CultureInfo.InvariantCulture);
+
+    void ResetAll()
+    {
+        _arenaW = DefArenaW; _arenaH = DefArenaH;
+        _hp1 = DefHp; _hp2 = DefHp;
+        _speedMult = DefSpeed;
+        _dir1 = Dir.NE; _dir2 = Dir.SW;
+        _placing = 1;
+        ResetPositions();
+    }
+
+    // ── Redimensionar a arena arrastando as bordas do preview ──
+    async Task StartResize(PointerEventArgs e, ResizeDir dir)
+    {
+        _resizing     = dir;
+        _resizeStartX = e.ClientX;
+        _resizeStartY = e.ClientY;
+        _resizeStartW = _arenaW;
+        _resizeStartH = _arenaH;
+        // escala real renderizada (px na tela por px de arena) — robusto em telas pequenas
+        double w = await JS.InvokeAsync<double>("cubattle.width", _previewEl);
+        _resizeScale = w > 0 ? w / _arenaW : PreviewScale;
+    }
+
+    void OnResizeMove(PointerEventArgs e)
+    {
+        if (_resizing == ResizeDir.None || _resizeScale <= 0) return;
+
+        if (_resizing is ResizeDir.E or ResizeDir.SE)
+        {
+            double delta = (e.ClientX - _resizeStartX) / _resizeScale;
+            _arenaW = (int)(Math.Round((_resizeStartW + delta) / 10) * 10);
+            _arenaW = Math.Clamp(_arenaW, MinArenaW, MaxArenaW);
+        }
+        if (_resizing is ResizeDir.S or ResizeDir.SE)
+        {
+            double delta = (e.ClientY - _resizeStartY) / _resizeScale;
+            _arenaH = (int)(Math.Round((_resizeStartH + delta) / 10) * 10);
+            _arenaH = Math.Clamp(_arenaH, MinArenaH, MaxArenaH);
+        }
+        ClampPositions();
+    }
+
+    void EndResize() => _resizing = ResizeDir.None;
 
     // ── Controle ───────────────────────────────────────────────
     void StartGame()
