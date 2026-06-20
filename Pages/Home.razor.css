@@ -549,7 +549,7 @@ input[type=range] { width: 100%; cursor: pointer; }
     flex-direction: column;
     align-items: center;
     gap: 1.2rem;
-    margin-top: 14vh;
+    margin-top: 4vh;
     text-align: center;
 }
 
@@ -557,6 +557,18 @@ input[type=range] { width: 100%; cursor: pointer; }
 .result-win  { color: #51cf66; }
 .result-lose { color: #ff6b6b; }
 .result-sub  { margin: 0; color: #aaa; font-size: 1.05rem; }
+
+/* Checkbox "sortear ao jogar" (Home / Config / Resultado) */
+.random-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #c4b5fd;
+    cursor: pointer;
+    user-select: none;
+}
+.random-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: #a78bfa; }
 
 /* ── Responsivo ────────────────────────────────────────────── */
 @media (max-width: 700px) {

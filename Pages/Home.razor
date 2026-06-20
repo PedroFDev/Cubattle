@@ -13,28 +13,13 @@
         <h1 class="title">CUBATTLE</h1>
         <p class="home-sub">Aposte em qual quadrado vai vencer a batalha!</p>
 
-        <div class="bet-cards">
-            <button class="bet-card bet-blue @(_bet == 1 ? "bet-selected" : "")" @onclick="@(() => _bet = 1)">
-                <div class="bet-sq sq-1-game">@_hp1</div>
-                <h2>Quadrado 1</h2>
-                <p class="vuln">Vulnerável: ↑ topo e ↓ base</p>
-                <span class="bet-badge">@(_bet == 1 ? "✔ Sua aposta" : "Apostar")</span>
-            </button>
-
-            <span class="bet-vs">VS</span>
-
-            <button class="bet-card bet-red @(_bet == 2 ? "bet-selected" : "")" @onclick="@(() => _bet = 2)">
-                <div class="bet-sq sq-2-game">@_hp2</div>
-                <h2>Quadrado 2</h2>
-                <p class="vuln">Vulnerável: ← esquerda e → direita</p>
-                <span class="bet-badge">@(_bet == 2 ? "✔ Sua aposta" : "Apostar")</span>
-            </button>
-        </div>
+        @BetCards()
 
         <div class="home-actions">
-            <button class="btn-start" @onclick="StartGame">▶ Jogar</button>
+            <button class="btn-start" @onclick="Play">▶ Jogar</button>
             <button class="btn-config" @onclick="@(() => _phase = Phase.Config)">⚙ Configurações</button>
         </div>
+        @RandomToggle()
     </div>
 }
 else if (_phase == Phase.Config)
@@ -147,8 +132,9 @@ else if (_phase == Phase.Config)
         </div>
 
         <div class="config-actions">
+            @RandomToggle()
             <button class="btn-config" @onclick="@(() => _phase = Phase.Home)">← Voltar</button>
-            <button class="btn-start" @onclick="StartGame">▶ Jogar</button>
+            <button class="btn-start" @onclick="StartGame">▶ Jogar predefinido</button>
         </div>
     </div>
 }
@@ -191,13 +177,20 @@ else if (_phase == Phase.Playing)
 }
 else
 {
-    bool won = _bet == _winnerNum;
     <div class="gameover">
-        <h1 class="result @(won ? "result-win" : "result-lose")">@(won ? "🎉 Você ganhou!" : "😢 Você perdeu")</h1>
+        <h1 class="result @(_won ? "result-win" : "result-lose")">@(_won ? "🎉 Você ganhou!" : "😢 Você perdeu")</h1>
         <p class="result-sub">
-            Quadrado @_winnerNum venceu — você apostou no Quadrado @_bet.
+            Quadrado @_winnerNum venceu — você apostou no Quadrado @_resultBet.
         </p>
-        <button class="btn-start" @onclick="@(() => _phase = Phase.Home)">↩ Voltar ao início</button>
+
+        <p class="home-sub">Aposte e jogue novamente:</p>
+        @BetCards()
+
+        <div class="home-actions">
+            <button class="btn-start" @onclick="Play">↩ Jogar Novamente</button>
+            <button class="btn-config" @onclick="@(() => _phase = Phase.Config)">⚙ Configurações</button>
+        </div>
+        @RandomToggle()
     </div>
 }
 
@@ -252,11 +245,14 @@ else
     int    _placing = 1;
     double _startX1, _startY1, _startX2, _startY2;
     int    _bet = 1;           // quadrado em que o jogador apostou (1 ou 2)
+    bool   _randomOnPlay = true; // sortear nova partida ao apertar Jogar (Home/Resultado)
 
     // ── Estado ─────────────────────────────────────────────────
     Phase                  _phase  = Phase.Home;
     Sq                     _sq1    = new(), _sq2 = new();
-    int                    _winnerNum;   // 1 ou 2
+    int                    _winnerNum;   // 1 ou 2 (vencedor da última partida)
+    int                    _resultBet;   // aposta usada na última partida
+    bool                   _won;         // resultado da última partida
     int                    _cooldown;
     bool                   _touching;
     CancellationTokenSource? _cts;
@@ -422,6 +418,13 @@ else
     void EndResize() => _resizing = ResizeDir.None;
 
     // ── Controle ───────────────────────────────────────────────
+    // Jogar pela Home / Resultado: sorteia nova partida se o random estiver ligado
+    void Play()
+    {
+        if (_randomOnPlay) Randomize();
+        StartGame();
+    }
+
     void StartGame()
     {
         var (vx1, vy1) = Vec(_dir1);
@@ -440,6 +443,32 @@ else
         StopGame();
         _phase = Phase.Home;
     }
+
+    // ── Fragmentos reutilizados nas telas com botão Jogar ──────
+    RenderFragment BetCards() =>
+        @<div class="bet-cards">
+            <button class="bet-card bet-blue @(_bet == 1 ? "bet-selected" : "")" @onclick="@(() => _bet = 1)">
+                <div class="bet-sq sq-1-game">@_hp1</div>
+                <h2>Quadrado 1</h2>
+                <p class="vuln">Vulnerável: ↑ topo e ↓ base</p>
+                <span class="bet-badge">@(_bet == 1 ? "✔ Sua aposta" : "Apostar")</span>
+            </button>
+
+            <span class="bet-vs">VS</span>
+
+            <button class="bet-card bet-red @(_bet == 2 ? "bet-selected" : "")" @onclick="@(() => _bet = 2)">
+                <div class="bet-sq sq-2-game">@_hp2</div>
+                <h2>Quadrado 2</h2>
+                <p class="vuln">Vulnerável: ← esquerda e → direita</p>
+                <span class="bet-badge">@(_bet == 2 ? "✔ Sua aposta" : "Apostar")</span>
+            </button>
+        </div>;
+
+    RenderFragment RandomToggle() =>
+        @<label class="random-toggle">
+            <input type="checkbox" @bind="_randomOnPlay" />
+            🎲 Sortear nova partida ao jogar
+        </label>;
 
     // ── Loop do jogo ───────────────────────────────────────────
     // Acumulador garante que a trajetória física é idêntica em qualquer velocidade —
@@ -566,6 +595,8 @@ else
     {
         StopGame();
         _winnerNum = winnerNum;
+        _resultBet = _bet;              // aposta desta partida (para exibir no resultado)
+        _won       = _bet == winnerNum;
         _phase     = Phase.GameOver;
         StateHasChanged();
     }
