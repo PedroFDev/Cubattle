@@ -7,10 +7,40 @@
 
 <div class="cubattle">
 
-@if (_phase == Phase.Setup)
+@if (_phase == Phase.Home)
+{
+    <div class="home">
+        <h1 class="title">CUBATTLE</h1>
+        <p class="home-sub">Aposte em qual quadrado vai vencer a batalha!</p>
+
+        <div class="bet-cards">
+            <button class="bet-card bet-blue @(_bet == 1 ? "bet-selected" : "")" @onclick="@(() => _bet = 1)">
+                <div class="bet-sq sq-1-game">@_hp1</div>
+                <h2>Quadrado 1</h2>
+                <p class="vuln">Vulnerável: ↑ topo e ↓ base</p>
+                <span class="bet-badge">@(_bet == 1 ? "✔ Sua aposta" : "Apostar")</span>
+            </button>
+
+            <span class="bet-vs">VS</span>
+
+            <button class="bet-card bet-red @(_bet == 2 ? "bet-selected" : "")" @onclick="@(() => _bet = 2)">
+                <div class="bet-sq sq-2-game">@_hp2</div>
+                <h2>Quadrado 2</h2>
+                <p class="vuln">Vulnerável: ← esquerda e → direita</p>
+                <span class="bet-badge">@(_bet == 2 ? "✔ Sua aposta" : "Apostar")</span>
+            </button>
+        </div>
+
+        <div class="home-actions">
+            <button class="btn-start" @onclick="StartGame">▶ Jogar</button>
+            <button class="btn-config" @onclick="@(() => _phase = Phase.Config)">⚙ Configurações</button>
+        </div>
+    </div>
+}
+else if (_phase == Phase.Config)
 {
     <div class="setup">
-        <h1 class="title">CUBATTLE</h1>
+        <h1 class="title">Configurações</h1>
 
         <div class="config-row">
             <span class="config-label">Arena:</span>
@@ -116,7 +146,10 @@
 
         </div>
 
-        <button class="btn-start" @onclick="StartGame">▶ Iniciar</button>
+        <div class="home-actions">
+            <button class="btn-config" @onclick="@(() => _phase = Phase.Home)">← Voltar</button>
+            <button class="btn-start" @onclick="StartGame">▶ Jogar</button>
+        </div>
     </div>
 }
 else if (_phase == Phase.Playing)
@@ -148,9 +181,13 @@ else if (_phase == Phase.Playing)
 }
 else
 {
+    bool won = _bet == _winnerNum;
     <div class="gameover">
-        <h1 class="title">@_winner venceu!</h1>
-        <button class="btn-start" @onclick="ResetGame">↩ Jogar Novamente</button>
+        <h1 class="result @(won ? "result-win" : "result-lose")">@(won ? "🎉 Você ganhou!" : "😢 Você perdeu")</h1>
+        <p class="result-sub">
+            Quadrado @_winnerNum venceu — você apostou no Quadrado @_bet.
+        </p>
+        <button class="btn-start" @onclick="@(() => _phase = Phase.Home)">↩ Voltar ao início</button>
     </div>
 }
 
@@ -168,7 +205,7 @@ else
     const double DefSpeed  = 1.0;
 
     // ── Tipos ──────────────────────────────────────────────────
-    enum Phase     { Setup, Playing, GameOver }
+    enum Phase     { Home, Config, Playing, GameOver }
     enum Dir       { NW, N, NE, W, E, SW, S, SE }
     enum ResizeDir { None, E, S, SE }
 
@@ -199,11 +236,12 @@ else
     Dir    _dir1 = Dir.NE, _dir2 = Dir.SW;
     int    _placing = 1;
     double _startX1, _startY1, _startX2, _startY2;
+    int    _bet = 1;           // quadrado em que o jogador apostou (1 ou 2)
 
     // ── Estado ─────────────────────────────────────────────────
-    Phase                  _phase  = Phase.Setup;
+    Phase                  _phase  = Phase.Home;
     Sq                     _sq1    = new(), _sq2 = new();
-    string                 _winner = "";
+    int                    _winnerNum;   // 1 ou 2
     int                    _cooldown;
     bool                   _touching;
     CancellationTokenSource? _cts;
@@ -359,10 +397,11 @@ else
         _ = GameLoop();
     }
 
+    // "Parar" durante a partida volta ao início mantendo as configurações
     void ResetGame()
     {
         StopGame();
-        _phase = Phase.Setup;
+        _phase = Phase.Home;
     }
 
     // ── Loop do jogo ───────────────────────────────────────────
@@ -385,8 +424,8 @@ else
                 {
                     PhysicsStep();
                     _accumulator -= 1.0;
-                    if (_sq1.HitCount >= _sq1.MaxHits) { End("Quadrado 2"); return; }
-                    if (_sq2.HitCount >= _sq2.MaxHits) { End("Quadrado 1"); return; }
+                    if (_sq1.HitCount >= _sq1.MaxHits) { End(2); return; }
+                    if (_sq2.HitCount >= _sq2.MaxHits) { End(1); return; }
                 }
 
                 StateHasChanged();
@@ -474,11 +513,11 @@ else
         s.HitCount++;
     }
 
-    void End(string winner)
+    void End(int winnerNum)
     {
         StopGame();
-        _winner = winner;
-        _phase  = Phase.GameOver;
+        _winnerNum = winnerNum;
+        _phase     = Phase.GameOver;
         StateHasChanged();
     }
 
