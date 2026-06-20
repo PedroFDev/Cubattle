@@ -32,7 +32,7 @@ else if (_phase == Phase.Config)
             <select class="combo" value="@ArenaKey" @onchange="OnArenaSelect">
                 @foreach (var p in _arenaPresets)
                 {
-                    <option value="@($"{p.w}x{p.h}")">@p.label (@p.w×@p.h)</option>
+                    <option value="@p.side">@p.label (@p.side×@p.side)</option>
                 }
                 <option value="custom" disabled hidden>Personalizado (@_arenaW×@_arenaH)</option>
             </select>
@@ -71,10 +71,6 @@ else if (_phase == Phase.Config)
                 @_hp2
             </div>
 
-            <div class="resize-handle resize-e"  @onpointerdown="e => StartResize(e, ResizeDir.E)"
-                 @onpointerdown:stopPropagation="true" @onclick:stopPropagation="true"></div>
-            <div class="resize-handle resize-s"  @onpointerdown="e => StartResize(e, ResizeDir.S)"
-                 @onpointerdown:stopPropagation="true" @onclick:stopPropagation="true"></div>
             <div class="resize-handle resize-se" @onpointerdown="e => StartResize(e, ResizeDir.SE)"
                  @onpointerdown:stopPropagation="true" @onclick:stopPropagation="true"></div>
         </div>
@@ -200,15 +196,16 @@ else
     const double HitShrink = 15, MinSize = 20, BaseStep = 4.0;
     const int    SizePerHP = 15, CooldownFrames = 25;
     const double PreviewScale = 0.4;   // escala fixa: preview cresce/encolhe junto com a arena
-    const int    MinArenaW = 400, MaxArenaW = 1400, MinArenaH = 300, MaxArenaH = 800;
+    // Arena sempre QUADRADA (lado em px) — retângulo favoreceria um dos quadrados
+    const int    MinArenaSide = 400, MaxArenaSide = 800;
 
-    // Morte súbita: se passar ~30s (a 1×) sem colisão entre os quadrados, as paredes
-    // se fecham até ocorrer uma colisão. Em PASSOS físicos → independe da velocidade.
-    const int    StallSteps     = 1875;   // ≈ 30 s a 1× (62.5 passos/s)
+    // Morte súbita: se passar ~12s (a 1×) sem DANO, as paredes se fecham até ocorrer
+    // um novo dano. Em PASSOS físicos → independe da velocidade.
+    const int    StallSteps     = 750;    // ≈ 12 s a 1× (62.5 passos/s)
     const double ClosingPerStep = 1.0;    // px que cada parede avança por passo
 
     // Padrões (usados no botão Resetar)
-    const int    DefArenaW = 800, DefArenaH = 500, DefHp = 4;
+    const int    DefArenaW = 600, DefArenaH = 600, DefHp = 4;
     const double DefSpeed  = 1.0;
 
     // ── Tipos ──────────────────────────────────────────────────
@@ -216,14 +213,13 @@ else
     enum Dir       { NW, N, NE, W, E, SW, S, SE }
     enum ResizeDir { None, E, S, SE }
 
-    // Presets de tamanho da arena (combobox)
-    readonly (string label, int w, int h)[] _arenaPresets =
+    // Presets de tamanho da arena — todos quadrados (combobox)
+    readonly (string label, int side)[] _arenaPresets =
     {
-        ("Pequena", 600, 400),
-        ("Média",   800, 500),
-        ("Grande", 1000, 600),
-        ("Ampla",  1200, 650),
-        ("Enorme", 1400, 800),
+        ("Pequena", 400),
+        ("Média",   550),
+        ("Grande",  700),
+        ("Enorme",  800),
     };
 
     // Opções de velocidade (config e durante a batalha)
@@ -277,8 +273,8 @@ else
     double InitSize1    => MinSize + _hp1 * SizePerHP;
     double InitSize2    => MinSize + _hp2 * SizePerHP;
     double PreviewW     => _arenaW * PreviewScale;
-    string ArenaKey     => _arenaPresets.Any(p => p.w == _arenaW && p.h == _arenaH)
-        ? $"{_arenaW}x{_arenaH}" : "custom";
+    string ArenaKey     => (_arenaW == _arenaH && _arenaPresets.Any(p => p.side == _arenaW))
+        ? _arenaW.ToString() : "custom";
 
     // ── Helpers ────────────────────────────────────────────────
     static string Px(double v)      => $"{v:F0}px";
@@ -361,9 +357,7 @@ else
     {
         var key = (string?)e.Value;
         if (string.IsNullOrEmpty(key) || key == "custom") return;
-        var parts = key.Split('x');
-        _arenaW = int.Parse(parts[0]);
-        _arenaH = int.Parse(parts[1]);
+        _arenaW = _arenaH = int.Parse(key);   // arena sempre quadrada
         ResetPositions();
     }
 
@@ -387,8 +381,8 @@ else
         int hp = _rng.Next(1, 9);               // 1..8, igual para os dois
         _hp1 = _hp2 = hp;
 
-        _arenaW = _rng.Next(MinArenaW / 50, MaxArenaW / 50 + 1) * 50;  // 400..1400, passo 50
-        _arenaH = _rng.Next(MinArenaH / 50, MaxArenaH / 50 + 1) * 50;  // 300..800,  passo 50
+        // Lado quadrado aleatório (400..800, passo 50)
+        _arenaW = _arenaH = _rng.Next(MinArenaSide / 50, MaxArenaSide / 50 + 1) * 50;
 
         _dir1 = _diagDirs[_rng.Next(_diagDirs.Length)];
         _dir2 = _diagDirs[_rng.Next(_diagDirs.Length)];
@@ -417,18 +411,14 @@ else
     {
         if (_resizing == ResizeDir.None || _resizeScale <= 0) return;
 
-        if (_resizing is ResizeDir.E or ResizeDir.SE)
-        {
-            double delta = (e.ClientX - _resizeStartX) / _resizeScale;
-            _arenaW = (int)(Math.Round((_resizeStartW + delta) / 10) * 10);
-            _arenaW = Math.Clamp(_arenaW, MinArenaW, MaxArenaW);
-        }
-        if (_resizing is ResizeDir.S or ResizeDir.SE)
-        {
-            double delta = (e.ClientY - _resizeStartY) / _resizeScale;
-            _arenaH = (int)(Math.Round((_resizeStartH + delta) / 10) * 10);
-            _arenaH = Math.Clamp(_arenaH, MinArenaH, MaxArenaH);
-        }
+        // Mantém a arena quadrada: o eixo arrastado de maior módulo define o lado
+        double dx = (e.ClientX - _resizeStartX) / _resizeScale;
+        double dy = (e.ClientY - _resizeStartY) / _resizeScale;
+        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
+
+        int side = (int)(Math.Round((_resizeStartW + delta) / 10) * 10);
+        side = Math.Clamp(side, MinArenaSide, MaxArenaSide);
+        _arenaW = _arenaH = side;
         ClampPositions();
     }
 
@@ -574,7 +564,6 @@ else
         bool horzHit = ox < oy;        // eixo de menor penetração = face que se tocou
         bool newCollision = !_touching;
         _touching = true;
-        if (newCollision) _stepsSinceHit = 0;   // colisão → zera impasse (para as paredes)
 
         // 1) Separa os dois para nunca se atravessarem (cada um recua metade da sobreposição)
         if (horzHit)
@@ -616,6 +605,7 @@ else
         if (_cooldown > 0) return;
         _cooldown = CooldownFrames;
         Hit(horzHit ? _sq2 : _sq1);
+        _stepsSinceHit = 0;   // dano real → zera o impasse (para/segura as paredes)
     }
 
     // Normaliza a velocidade para vetor unitário (magnitude sempre ≥ 1 aqui → seguro)

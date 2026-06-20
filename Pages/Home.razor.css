@@ -635,6 +635,22 @@ input[type=range] { width: 100%; cursor: pointer; }
     .btn-start { padding: 0.7rem 2.2rem; }
 }
 
+/* Cards de aposta empilham na vertical em telas estreitas (VS centralizado) */
+@media (max-width: 560px) {
+    .bet-cards { flex-direction: column; gap: 0.9rem; width: 100%; }
+    .bet-card  { width: 100%; max-width: 340px; padding: 1.2rem; }
+    .bet-vs    { transform: rotate(90deg); margin: 0; }
+    .home-actions { width: 100%; }
+    .home-actions .btn-start,
+    .home-actions .btn-config { flex: 1 1 auto; }
+
+    /* HUD da partida: controles de velocidade/parar quebram para uma 2ª linha */
+    .hud { flex-wrap: wrap; row-gap: 6px; }
+    .hud-center { order: 3; width: 100%; justify-content: center; }
+    .hud-blue, .hud-red { font-size: 0.82rem; gap: 6px; }
+    .hearts { font-size: 1rem; letter-spacing: 1px; }
+}
+
 @media (max-width: 420px) {
     .num-input  { width: 60px; }
     .place-btn  { padding: 5px 12px; font-size: 0.8rem; }
