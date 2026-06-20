@@ -242,6 +242,26 @@
 .panel-blue { border: 2px solid rgba(77,  171, 247, 0.6); }
 .panel-red  { border: 2px solid rgba(240, 62,  62,  0.6); }
 
+/* Campo de nome editável do quadrado */
+.name-input {
+    width: 100%;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: white;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid transparent;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+    transition: border-color 0.15s, background 0.15s;
+}
+.name-input:hover  { background: rgba(255, 255, 255, 0.1); }
+.name-input:focus  { outline: none; background: rgba(255, 255, 255, 0.12); border-color: #4dabf7; }
+.panel-red .name-input:focus,
+.bet-red .name-input:focus { border-color: #f03e3e; }
+
 .sq-demo { width: 46px; height: 46px; border-radius: 5px; }
 .sq-blue-fill { background: #4dabf7; }
 .sq-red-fill  { background: #f03e3e; }
@@ -261,15 +281,15 @@ input[type=range] { width: 100%; cursor: pointer; }
 .panel-blue input[type=range] { accent-color: #4dabf7; }
 .panel-red  input[type=range] { accent-color: #f03e3e; }
 
-/* Grid de direção */
+/* Grid de direção (apenas diagonais) */
 .dir-grid {
     display: grid;
-    grid-template-columns: repeat(3, 40px);
-    gap: 4px;
+    grid-template-columns: repeat(2, 44px);
+    gap: 6px;
 }
 
 .dir-btn {
-    width: 40px; height: 40px;
+    width: 44px; height: 44px;
     background: rgba(255, 255, 255, 0.07);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 7px;
@@ -404,6 +424,38 @@ input[type=range] { width: 100%; cursor: pointer; }
     border-left-color:   #ffa94d;
     border-right-color:  #ffa94d;
 }
+
+/* Paredes que se fecham na morte súbita */
+.wall {
+    position: absolute;
+    background: repeating-linear-gradient(45deg,
+        rgba(240, 62, 62, 0.55) 0, rgba(240, 62, 62, 0.55) 10px,
+        rgba(120, 20, 20, 0.55) 10px, rgba(120, 20, 20, 0.55) 20px);
+    box-shadow: 0 0 12px rgba(240, 62, 62, 0.5);
+    z-index: 3;
+}
+.wall-l { left: 0;  top: 0; height: 100%; }
+.wall-r { right: 0; top: 0; height: 100%; }
+.wall-t { top: 0;    left: 0; width: 100%; }
+.wall-b { bottom: 0; left: 0; width: 100%; }
+
+.sudden-death {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    background: rgba(13, 13, 26, 0.85);
+    color: #ff8787;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(240, 62, 62, 0.6);
+    white-space: nowrap;
+    animation: sd-pulse 1s ease-in-out infinite;
+}
+@keyframes sd-pulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
 
 /* Legenda */
 .legend {

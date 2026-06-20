@@ -55,8 +55,8 @@ else if (_phase == Phase.Config)
 
         <div class="place-controls">
             <span class="config-label">Posicionar:</span>
-            <button class="@PlaceBtn(1)" @onclick="@(() => { _placing = 1; })">● Quadrado 1</button>
-            <button class="@PlaceBtn(2)" @onclick="@(() => { _placing = 2; })">● Quadrado 2</button>
+            <button class="@PlaceBtn(1)" @onclick="@(() => { _placing = 1; })">● @Name(1)</button>
+            <button class="@PlaceBtn(2)" @onclick="@(() => { _placing = 2; })">● @Name(2)</button>
             <span class="place-hint">→ clique na arena para posicionar</span>
         </div>
 
@@ -89,7 +89,7 @@ else if (_phase == Phase.Config)
 
             <div class="panel panel-blue">
                 <div class="sq-demo sq-blue-fill"></div>
-                <h2>Quadrado 1</h2>
+                <input class="name-input" @bind="_name1" @bind:event="oninput" maxlength="16" placeholder="Quadrado 1" />
                 <p class="vuln">Vulnerável: ↑ topo e ↓ base</p>
                 <div class="hp-row">
                     <span class="hp-label">Vida: <strong>@_hp1</strong></span>
@@ -97,20 +97,15 @@ else if (_phase == Phase.Config)
                 </div>
                 <div class="dir-grid">
                     <button class="@Sel(_dir1, Dir.NW)" @onclick="@(() => { _dir1 = Dir.NW; })">↖</button>
-                    <button class="@Sel(_dir1, Dir.N)"  @onclick="@(() => { _dir1 = Dir.N;  })">↑</button>
                     <button class="@Sel(_dir1, Dir.NE)" @onclick="@(() => { _dir1 = Dir.NE; })">↗</button>
-                    <button class="@Sel(_dir1, Dir.W)"  @onclick="@(() => { _dir1 = Dir.W;  })">←</button>
-                    <span class="dir-center">●</span>
-                    <button class="@Sel(_dir1, Dir.E)"  @onclick="@(() => { _dir1 = Dir.E;  })">→</button>
                     <button class="@Sel(_dir1, Dir.SW)" @onclick="@(() => { _dir1 = Dir.SW; })">↙</button>
-                    <button class="@Sel(_dir1, Dir.S)"  @onclick="@(() => { _dir1 = Dir.S;  })">↓</button>
                     <button class="@Sel(_dir1, Dir.SE)" @onclick="@(() => { _dir1 = Dir.SE; })">↘</button>
                 </div>
             </div>
 
             <div class="panel panel-red">
                 <div class="sq-demo sq-red-fill"></div>
-                <h2>Quadrado 2</h2>
+                <input class="name-input" @bind="_name2" @bind:event="oninput" maxlength="16" placeholder="Quadrado 2" />
                 <p class="vuln">Vulnerável: ← esquerda e → direita</p>
                 <div class="hp-row">
                     <span class="hp-label">Vida: <strong>@_hp2</strong></span>
@@ -118,13 +113,8 @@ else if (_phase == Phase.Config)
                 </div>
                 <div class="dir-grid">
                     <button class="@Sel(_dir2, Dir.NW)" @onclick="@(() => { _dir2 = Dir.NW; })">↖</button>
-                    <button class="@Sel(_dir2, Dir.N)"  @onclick="@(() => { _dir2 = Dir.N;  })">↑</button>
                     <button class="@Sel(_dir2, Dir.NE)" @onclick="@(() => { _dir2 = Dir.NE; })">↗</button>
-                    <button class="@Sel(_dir2, Dir.W)"  @onclick="@(() => { _dir2 = Dir.W;  })">←</button>
-                    <span class="dir-center">●</span>
-                    <button class="@Sel(_dir2, Dir.E)"  @onclick="@(() => { _dir2 = Dir.E;  })">→</button>
                     <button class="@Sel(_dir2, Dir.SW)" @onclick="@(() => { _dir2 = Dir.SW; })">↙</button>
-                    <button class="@Sel(_dir2, Dir.S)"  @onclick="@(() => { _dir2 = Dir.S;  })">↓</button>
                     <button class="@Sel(_dir2, Dir.SE)" @onclick="@(() => { _dir2 = Dir.SE; })">↘</button>
                 </div>
             </div>
@@ -142,7 +132,7 @@ else if (_phase == Phase.Playing)
 {
     <div class="hud" style="width:min(100%, @Px(_arenaW));">
         <div class="hud-blue">
-            <span>Quadrado 1</span>
+            <span>@Name(1)</span>
             <span class="hearts">@Hearts(_sq1)</span>
         </div>
         <div class="hud-center">
@@ -158,7 +148,7 @@ else if (_phase == Phase.Playing)
         </div>
         <div class="hud-red">
             <span class="hearts">@Hearts(_sq2)</span>
-            <span>Quadrado 2</span>
+            <span>@Name(2)</span>
         </div>
     </div>
     <div class="arena" style="width:min(100%, @Px(_arenaW)); aspect-ratio:@_arenaW / @_arenaH;">
@@ -170,6 +160,15 @@ else if (_phase == Phase.Playing)
              style="left:@Pct(_sq2.X, _arenaW); top:@Pct(_sq2.Y, _arenaH); width:@Pct(_sq2.Size, _arenaW); height:@Pct(_sq2.Size, _arenaH);">
             @(_sq2.MaxHits - _sq2.HitCount)
         </div>
+
+        @if (_wallInset > 0)
+        {
+            <div class="wall wall-l" style="width:@Pct(_wallInset, _arenaW);"></div>
+            <div class="wall wall-r" style="width:@Pct(_wallInset, _arenaW);"></div>
+            <div class="wall wall-t" style="height:@Pct(_wallInset, _arenaH);"></div>
+            <div class="wall wall-b" style="height:@Pct(_wallInset, _arenaH);"></div>
+            <div class="sudden-death">⚡ Morte súbita — paredes fechando</div>
+        }
     </div>
     <div class="legend">
         <span class="leg-vuln"></span> lado vulnerável
@@ -180,7 +179,7 @@ else
     <div class="gameover">
         <h1 class="result @(_won ? "result-win" : "result-lose")">@(_won ? "🎉 Você ganhou!" : "😢 Você perdeu")</h1>
         <p class="result-sub">
-            Quadrado @_winnerNum venceu — você apostou no Quadrado @_resultBet.
+            @Name(_winnerNum) venceu — você apostou em @Name(_resultBet).
         </p>
 
         <p class="home-sub">Aposte e jogue novamente:</p>
@@ -202,6 +201,11 @@ else
     const int    SizePerHP = 15, CooldownFrames = 25;
     const double PreviewScale = 0.4;   // escala fixa: preview cresce/encolhe junto com a arena
     const int    MinArenaW = 400, MaxArenaW = 1400, MinArenaH = 300, MaxArenaH = 800;
+
+    // Morte súbita: se passar ~30s (a 1×) sem colisão entre os quadrados, as paredes
+    // se fecham até ocorrer uma colisão. Em PASSOS físicos → independe da velocidade.
+    const int    StallSteps     = 1875;   // ≈ 30 s a 1× (62.5 passos/s)
+    const double ClosingPerStep = 1.0;    // px que cada parede avança por passo
 
     // Padrões (usados no botão Resetar)
     const int    DefArenaW = 800, DefArenaH = 500, DefHp = 4;
@@ -225,6 +229,9 @@ else
     // Opções de velocidade (config e durante a batalha)
     static readonly double[] _speedOptions = { 0.25, 0.5, 1, 1.5, 2, 3, 5 };
 
+    // Direções válidas: apenas diagonais (evita quadrados presos num eixo só)
+    static readonly Dir[] _diagDirs = { Dir.NW, Dir.NE, Dir.SW, Dir.SE };
+
     readonly Random _rng = new();
 
     class Sq
@@ -244,6 +251,7 @@ else
     Dir    _dir1 = Dir.NE, _dir2 = Dir.SW;
     int    _placing = 1;
     double _startX1, _startY1, _startX2, _startY2;
+    string _name1 = "Quadrado 1", _name2 = "Quadrado 2";
     int    _bet = 1;           // quadrado em que o jogador apostou (1 ou 2)
     bool   _randomOnPlay = true; // sortear nova partida ao apertar Jogar (Home/Resultado)
 
@@ -254,6 +262,8 @@ else
     int                    _resultBet;   // aposta usada na última partida
     bool                   _won;         // resultado da última partida
     int                    _cooldown;
+    int                    _stepsSinceHit;  // passos físicos desde a última colisão
+    double                 _wallInset;      // quanto as paredes já se fecharam (px)
     bool                   _touching;
     CancellationTokenSource? _cts;
     ElementReference       _previewEl;
@@ -279,6 +289,12 @@ else
     static string SpeedLabel(double s) => s == 0.25 ? "0.25×" : s == 0.5 ? "0.50×"
         : s.ToString("0.##", CultureInfo.InvariantCulture) + "×";
     static string SpeedVal(double s)   => s.ToString(CultureInfo.InvariantCulture);
+    // Nome do quadrado (cai para o padrão se o usuário deixar em branco)
+    string Name(int n)
+    {
+        var v = (n == 1 ? _name1 : _name2)?.Trim();
+        return string.IsNullOrEmpty(v) ? $"Quadrado {n}" : v;
+    }
     string Sel(Dir cur, Dir btn)    => cur == btn ? "dir-btn active" : "dir-btn";
     string PlaceBtn(int i)          => _placing == i
         ? (i == 1 ? "place-btn place-btn-blue active" : "place-btn place-btn-red active")
@@ -360,6 +376,7 @@ else
         _hp1 = DefHp; _hp2 = DefHp;
         _speedMult = DefSpeed;
         _dir1 = Dir.NE; _dir2 = Dir.SW;
+        _name1 = "Quadrado 1"; _name2 = "Quadrado 2";
         _placing = 1;
         ResetPositions();
     }
@@ -373,8 +390,8 @@ else
         _arenaW = _rng.Next(MinArenaW / 50, MaxArenaW / 50 + 1) * 50;  // 400..1400, passo 50
         _arenaH = _rng.Next(MinArenaH / 50, MaxArenaH / 50 + 1) * 50;  // 300..800,  passo 50
 
-        _dir1 = (Dir)_rng.Next(8);
-        _dir2 = (Dir)_rng.Next(8);
+        _dir1 = _diagDirs[_rng.Next(_diagDirs.Length)];
+        _dir2 = _diagDirs[_rng.Next(_diagDirs.Length)];
 
         // Posições aleatórias com o quadrado totalmente dentro da arena
         _startX1 = _rng.NextDouble() * Math.Max(0, _arenaW - InitSize1);
@@ -433,6 +450,8 @@ else
         _sq2 = new Sq { X = _startX2, Y = _startY2, Size = InitSize2, VX = vx2, VY = vy2, MaxHits = _hp2 };
         _cooldown = 0;
         _touching = false;
+        _stepsSinceHit = 0;
+        _wallInset = 0;
         _phase = Phase.Playing;
         _ = GameLoop();
     }
@@ -447,21 +466,23 @@ else
     // ── Fragmentos reutilizados nas telas com botão Jogar ──────
     RenderFragment BetCards() =>
         @<div class="bet-cards">
-            <button class="bet-card bet-blue @(_bet == 1 ? "bet-selected" : "")" @onclick="@(() => _bet = 1)">
+            <div class="bet-card bet-blue @(_bet == 1 ? "bet-selected" : "")" @onclick="@(() => _bet = 1)">
                 <div class="bet-sq sq-1-game">@_hp1</div>
-                <h2>Quadrado 1</h2>
+                <input class="name-input" @bind="_name1" @bind:event="oninput" maxlength="16"
+                       placeholder="Quadrado 1" @onclick:stopPropagation="true" />
                 <p class="vuln">Vulnerável: ↑ topo e ↓ base</p>
                 <span class="bet-badge">@(_bet == 1 ? "✔ Sua aposta" : "Apostar")</span>
-            </button>
+            </div>
 
             <span class="bet-vs">VS</span>
 
-            <button class="bet-card bet-red @(_bet == 2 ? "bet-selected" : "")" @onclick="@(() => _bet = 2)">
+            <div class="bet-card bet-red @(_bet == 2 ? "bet-selected" : "")" @onclick="@(() => _bet = 2)">
                 <div class="bet-sq sq-2-game">@_hp2</div>
-                <h2>Quadrado 2</h2>
+                <input class="name-input" @bind="_name2" @bind:event="oninput" maxlength="16"
+                       placeholder="Quadrado 2" @onclick:stopPropagation="true" />
                 <p class="vuln">Vulnerável: ← esquerda e → direita</p>
                 <span class="bet-badge">@(_bet == 2 ? "✔ Sua aposta" : "Apostar")</span>
-            </button>
+            </div>
         </div>;
 
     RenderFragment RandomToggle() =>
@@ -505,17 +526,37 @@ else
         MoveStep(_sq1); MoveStep(_sq2);
         Bounce(_sq1);   Bounce(_sq2);
         Collide();
+
+        // Morte súbita: sem colisão por muito tempo → as paredes começam a se fechar
+        _stepsSinceHit++;
+        if (_stepsSinceHit > StallSteps) CloseWalls();
     }
 
     // Move um "passo físico" fixo: BaseStep px na direção do vetor unitário
     static void MoveStep(Sq s) { s.X += s.VX * BaseStep; s.Y += s.VY * BaseStep; }
 
+    // Limites efetivos da arena (encolhem na morte súbita)
+    double WallL => _wallInset;
+    double WallT => _wallInset;
+    double WallR => _arenaW - _wallInset;
+    double WallB => _arenaH - _wallInset;
+
     void Bounce(Sq s)
     {
-        if (s.X < 0)                { s.X = 0;               s.VX =  Math.Abs(s.VX); }
-        if (s.X + s.Size > _arenaW) { s.X = _arenaW - s.Size; s.VX = -Math.Abs(s.VX); }
-        if (s.Y < 0)                { s.Y = 0;               s.VY =  Math.Abs(s.VY); }
-        if (s.Y + s.Size > _arenaH) { s.Y = _arenaH - s.Size; s.VY = -Math.Abs(s.VY); }
+        if (s.X < WallL)          { s.X = WallL;          s.VX =  Math.Abs(s.VX); }
+        if (s.X + s.Size > WallR) { s.X = WallR - s.Size; s.VX = -Math.Abs(s.VX); }
+        if (s.Y < WallT)          { s.Y = WallT;          s.VY =  Math.Abs(s.VY); }
+        if (s.Y + s.Size > WallB) { s.Y = WallB - s.Size; s.VY = -Math.Abs(s.VY); }
+    }
+
+    // Avança as paredes até o limite que ainda comporta os dois quadrados lado a lado
+    void CloseWalls()
+    {
+        double biggest = Math.Max(InitSize1, InitSize2);
+        double maxInsetX = (_arenaW - biggest * 2 - 10) / 2;
+        double maxInsetY = (_arenaH - biggest * 2 - 10) / 2;
+        double max = Math.Max(0, Math.Min(maxInsetX, maxInsetY));
+        _wallInset = Math.Min(_wallInset + ClosingPerStep, max);
     }
 
     void Collide()
@@ -533,6 +574,7 @@ else
         bool horzHit = ox < oy;        // eixo de menor penetração = face que se tocou
         bool newCollision = !_touching;
         _touching = true;
+        if (newCollision) _stepsSinceHit = 0;   // colisão → zera impasse (para as paredes)
 
         // 1) Separa os dois para nunca se atravessarem (cada um recua metade da sobreposição)
         if (horzHit)
