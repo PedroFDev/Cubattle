@@ -55,16 +55,16 @@ else if (_phase == Phase.Config)
             <span class="config-sep">|</span>
 
             <span class="config-label">Velocidade:</span>
-            <select class="combo" value="@_speedMult.ToString(CultureInfo.InvariantCulture)" @onchange="OnSpeedChange">
-                <option value="0.25">0.25×</option>
-                <option value="0.5">0.50×</option>
-                <option value="1">1×</option>
-                <option value="1.5">1.5×</option>
-                <option value="2">2×</option>
+            <select class="combo" value="@SpeedVal(_speedMult)" @onchange="OnSpeedChange">
+                @foreach (var s in _speedOptions)
+                {
+                    <option value="@SpeedVal(s)">@SpeedLabel(s)</option>
+                }
             </select>
 
             <span class="config-sep">|</span>
 
+            <button class="btn-random" @onclick="Randomize">🎲 Random</button>
             <button class="btn-reset" @onclick="ResetAll">↺ Resetar</button>
         </div>
 
@@ -146,7 +146,7 @@ else if (_phase == Phase.Config)
 
         </div>
 
-        <div class="home-actions">
+        <div class="config-actions">
             <button class="btn-config" @onclick="@(() => _phase = Phase.Home)">← Voltar</button>
             <button class="btn-start" @onclick="StartGame">▶ Jogar</button>
         </div>
@@ -159,7 +159,17 @@ else if (_phase == Phase.Playing)
             <span>Quadrado 1</span>
             <span class="hearts">@Hearts(_sq1)</span>
         </div>
-        <button class="btn-stop" @onclick="ResetGame">■ Parar</button>
+        <div class="hud-center">
+            <label class="hud-speed">⏩
+                <select class="combo combo-sm" value="@SpeedVal(_speedMult)" @onchange="OnSpeedChange">
+                    @foreach (var s in _speedOptions)
+                    {
+                        <option value="@SpeedVal(s)">@SpeedLabel(s)</option>
+                    }
+                </select>
+            </label>
+            <button class="btn-stop" @onclick="ResetGame">■ Parar</button>
+        </div>
         <div class="hud-red">
             <span class="hearts">@Hearts(_sq2)</span>
             <span>Quadrado 2</span>
@@ -219,6 +229,11 @@ else
         ("Enorme", 1400, 800),
     };
 
+    // Opções de velocidade (config e durante a batalha)
+    static readonly double[] _speedOptions = { 0.25, 0.5, 1, 1.5, 2, 3, 5 };
+
+    readonly Random _rng = new();
+
     class Sq
     {
         public double X, Y, Size, VX, VY;
@@ -265,6 +280,9 @@ else
     static string Pct(double v, double total)
         => (total <= 0 ? 0 : v / total * 100).ToString("F4", CultureInfo.InvariantCulture) + "%";
     static string Hearts(Sq s)      => new string('♥', Math.Max(0, s.MaxHits - s.HitCount)) + new string('♡', Math.Min(s.MaxHits, s.HitCount));
+    static string SpeedLabel(double s) => s == 0.25 ? "0.25×" : s == 0.5 ? "0.50×"
+        : s.ToString("0.##", CultureInfo.InvariantCulture) + "×";
+    static string SpeedVal(double s)   => s.ToString(CultureInfo.InvariantCulture);
     string Sel(Dir cur, Dir btn)    => cur == btn ? "dir-btn active" : "dir-btn";
     string PlaceBtn(int i)          => _placing == i
         ? (i == 1 ? "place-btn place-btn-blue active" : "place-btn place-btn-red active")
@@ -348,6 +366,25 @@ else
         _dir1 = Dir.NE; _dir2 = Dir.SW;
         _placing = 1;
         ResetPositions();
+    }
+
+    // Sorteia vida (igual p/ ambos), tamanho da arena, posições e direções
+    void Randomize()
+    {
+        int hp = _rng.Next(1, 9);               // 1..8, igual para os dois
+        _hp1 = _hp2 = hp;
+
+        _arenaW = _rng.Next(MinArenaW / 50, MaxArenaW / 50 + 1) * 50;  // 400..1400, passo 50
+        _arenaH = _rng.Next(MinArenaH / 50, MaxArenaH / 50 + 1) * 50;  // 300..800,  passo 50
+
+        _dir1 = (Dir)_rng.Next(8);
+        _dir2 = (Dir)_rng.Next(8);
+
+        // Posições aleatórias com o quadrado totalmente dentro da arena
+        _startX1 = _rng.NextDouble() * Math.Max(0, _arenaW - InitSize1);
+        _startY1 = _rng.NextDouble() * Math.Max(0, _arenaH - InitSize1);
+        _startX2 = _rng.NextDouble() * Math.Max(0, _arenaW - InitSize2);
+        _startY2 = _rng.NextDouble() * Math.Max(0, _arenaH - InitSize2);
     }
 
     // ── Redimensionar a arena arrastando as bordas do preview ──
@@ -464,45 +501,57 @@ else
             return;
         }
 
-        bool horzHit = ox < oy;
+        bool horzHit = ox < oy;        // eixo de menor penetração = face que se tocou
         bool newCollision = !_touching;
         _touching = true;
 
-        // Separação (aplicada todo frame para evitar sobreposição persistente)
+        // 1) Separa os dois para nunca se atravessarem (cada um recua metade da sobreposição)
         if (horzHit)
         {
-            double push = ox / 2 + 1;
+            double push = ox / 2 + 0.5;
             if (_sq1.CX < _sq2.CX) { _sq1.X -= push; _sq2.X += push; }
-            else                    { _sq1.X += push; _sq2.X -= push; }
+            else                   { _sq1.X += push; _sq2.X -= push; }
         }
         else
         {
-            double push = oy / 2 + 1;
+            double push = oy / 2 + 0.5;
             if (_sq1.CY < _sq2.CY) { _sq1.Y -= push; _sq2.Y += push; }
-            else                    { _sq1.Y += push; _sq2.Y -= push; }
+            else                   { _sq1.Y += push; _sq2.Y -= push; }
         }
 
-        // Troca de velocidade e dano apenas no primeiro frame do contato
+        // Reflexão e dano só no primeiro frame do contato
         if (!newCollision) return;
 
-        if (horzHit) (_sq1.VX, _sq2.VX) = (_sq2.VX, _sq1.VX);
-        else         (_sq1.VY, _sq2.VY) = (_sq2.VY, _sq1.VY);
+        // 2) No eixo da colisão, cada quadrado recebe a componente normal apontando
+        //    para LONGE do outro (estilo Pong). Mantém a tangencial e renormaliza →
+        //    o quadrado atingido sempre ganha movimento nesse eixo, mesmo que antes
+        //    estivesse indo só na outra direção. Velocidade unitária preservada.
+        if (horzHit)
+        {
+            double s1 = _sq1.CX < _sq2.CX ? -1 : 1;   // esquerda vai p/ esquerda
+            _sq1.VX =  s1;
+            _sq2.VX = -s1;
+        }
+        else
+        {
+            double s1 = _sq1.CY < _sq2.CY ? -1 : 1;   // de cima vai p/ cima
+            _sq1.VY =  s1;
+            _sq2.VY = -s1;
+        }
+        Normalize(_sq1);
+        Normalize(_sq2);
 
-        // Garante que nenhum quadrado fique parado após a troca
-        KeepMoving(_sq1);
-        KeepMoving(_sq2);
-
+        // 3) Dano: face vertical (horzHit) atinge o Q2; face horizontal atinge o Q1
         if (_cooldown > 0) return;
         _cooldown = CooldownFrames;
         Hit(horzHit ? _sq2 : _sq1);
     }
 
-    // Normaliza para vetor unitário e previne velocidade zero
-    static void KeepMoving(Sq s)
+    // Normaliza a velocidade para vetor unitário (magnitude sempre ≥ 1 aqui → seguro)
+    static void Normalize(Sq s)
     {
-        double mag = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
-        if (mag < 0.1) { s.VX = 0.7071; s.VY = 0.7071; }
-        else           { s.VX /= mag;    s.VY /= mag;    }
+        double m = Math.Sqrt(s.VX * s.VX + s.VY * s.VY);
+        s.VX /= m; s.VY /= m;
     }
 
     static void Hit(Sq s)

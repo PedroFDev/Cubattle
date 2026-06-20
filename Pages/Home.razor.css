@@ -88,6 +88,20 @@
 }
 .btn-reset:hover { background: rgba(255, 169, 77, 0.15); border-color: #ffa94d; color: #ffd8a8; }
 
+/* Botão random */
+.btn-random {
+    padding: 5px 16px;
+    background: rgba(167, 139, 250, 0.12);
+    border: 1px solid #6d5bd0;
+    border-radius: 20px;
+    color: #c4b5fd;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 700;
+    transition: all 0.15s;
+}
+.btn-random:hover { background: rgba(167, 139, 250, 0.25); border-color: #a78bfa; color: #fff; }
+
 /* Botões de posicionamento */
 .place-controls {
     display: flex;
@@ -317,6 +331,20 @@ input[type=range] { width: 100%; cursor: pointer; }
 .hud-red  { color: #f03e3e; }
 .hearts { font-size: 1.1rem; letter-spacing: 2px; }
 
+.hud-center {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.hud-speed {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9rem;
+    color: #a78bfa;
+}
+.combo-sm { padding: 3px 6px; font-size: 0.82rem; }
+
 .btn-stop {
     padding: 0.3rem 1.1rem;
     background: rgba(255, 255, 255, 0.06);
@@ -498,6 +526,22 @@ input[type=range] { width: 100%; cursor: pointer; }
     transition: background 0.15s;
 }
 .btn-config:hover { background: rgba(255, 255, 255, 0.14); }
+
+/* Barra de ações fixa da tela de configuração (sempre visível, sem scroll) */
+.config-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 14px 0 6px;
+    margin-top: auto;
+    background: linear-gradient(to top, #0d0d1a 65%, rgba(13, 13, 26, 0));
+    z-index: 20;
+}
 
 /* ── Game Over ─────────────────────────────────────────────── */
 .gameover {
